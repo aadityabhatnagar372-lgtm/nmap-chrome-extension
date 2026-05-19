@@ -135,9 +135,10 @@ class NmapRequest(BaseModel):
     iflist: bool = False          # --iflist
 
 def get_nmap_path():
-    # Reload PATH from Windows registry so freshly installed nmap is found
-    import winreg, ctypes
+    # Reload PATH from Windows registry so freshly installed nmap is found (Windows only)
     try:
+        import winreg
+        import ctypes
         machine_path = winreg.QueryValueEx(
             winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                 r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
@@ -147,7 +148,7 @@ def get_nmap_path():
                 r"Environment"),
             "Path")[0]
         os.environ["PATH"] = machine_path + ";" + user_path + ";" + os.environ.get("PATH","")
-    except Exception:
+    except (ImportError, Exception):
         pass
 
     paths = [
