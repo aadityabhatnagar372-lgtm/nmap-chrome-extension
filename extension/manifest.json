@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Nmap Web Interface",
+  "version": "1.0",
+  "description": "Powerful Nmap interface for your browser.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "notifications",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "icons": {
+    "128": "icon.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

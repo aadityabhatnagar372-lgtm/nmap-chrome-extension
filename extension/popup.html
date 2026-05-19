@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nmap Web Interface</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <div>
+                    <h1>Nmap<span>Interface</span></h1>
+                    <p class="subtitle">Full Cheatsheet Mode</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="status-indicator" id="api-status">
+                    <span class="dot"></span><span id="status-text">Checking...</span>
+                </div>
+                <button id="settings-btn" class="btn-ghost" style="padding: 4px 8px;" title="Settings">⚙️</button>
+            </div>
+        </header>
+
+        <!-- SETTINGS MODAL -->
+        <div id="settings-modal" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--text)">Backend Configuration</strong>
+                <button id="close-settings-btn" class="btn-ghost" style="padding: 2px 6px;">✕</button>
+            </div>
+            <div class="input-row" style="margin-top: 0;">
+                <label>API URL</label>
+                <input type="text" id="api-url-input" placeholder="https://api.yourdomain.com">
+            </div>
+            <p style="font-size: 11px; color: var(--text-dim); margin-top: 6px; line-height: 1.4;">Deploy the `backend` Docker container to Render or AWS, then enter your public URL here.</p>
+        </div>
+
+        <!-- HISTORY MODAL -->
+        <div id="history-modal" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--text)">Scan History</strong>
+                <button id="close-history-btn" class="btn-ghost" style="padding: 2px 6px;">✕</button>
+            </div>
+            <div id="history-list" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                <div style="color: var(--text-dim); text-align: center;">No history yet.</div>
+            </div>
+        </div>
+
+        <!-- PROFILES & TARGET -->
+        <section class="target-bar">
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="target" placeholder="Target: IP, hostname, CIDR" autocomplete="off">
+                    <button id="scan-btn" class="btn-primary">▶ Scan</button>
+                    <button id="clear-btn" class="btn-secondary">✕</button>
+                    <button id="history-btn" class="btn-ghost" style="padding: 0 10px;" title="History">🕒</button>
+                </div>
+                <div class="quickfill-row" style="margin-top: 0;">
+                    <button class="qbtn profile-btn" data-profile="intense">Intense</button>
+                    <button class="qbtn profile-btn" data-profile="quick">Quick</button>
+                    <button class="qbtn profile-btn" data-profile="ping">Ping Sweep</button>
+                    <button class="qbtn profile-btn" data-profile="vuln">Vuln Scan</button>
+                    <button class="qbtn" id="bulk-toggle">Bulk Targets</button>
+                </div>
+                <textarea id="bulk-targets" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; height: 80px; resize: vertical;" placeholder="Paste targets line by line..."></textarea>
+            </div>
+        </section>
+
+        <!-- COMMAND PREVIEW -->
+        <div class="cmd-preview" id="cmd-preview">
+            <span class="cmd-label">CMD</span>
+            <code id="cmd-text">nmap [target]</code>
+        </div>
+
+        <!-- OPTIONS PANEL -->
+        <div class="options-panel">
+
+            <!-- SCAN TYPES -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>🎯 Scan Types</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-sS" name="syn_scan"> TCP SYN <code>-sS</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sT" name="tcp_connect"> TCP Connect <code>-sT</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sU" name="udp_scan"> UDP Scan <code>-sU</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sN" name="null_scan"> NULL Scan <code>-sN</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sF" name="fin_scan"> FIN Scan <code>-sF</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sX" name="xmas_scan"> Xmas Scan <code>-sX</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sA" name="ack_scan"> ACK Scan <code>-sA</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sW" name="window_scan"> Window Scan <code>-sW</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sO" name="ip_protocol_scan"> IP Protocol <code>-sO</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sR" name="rpc_scan"> RPC Scan <code>-sR</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-6" name="ipv6"> IPv6 <code>-6</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-A" name="aggressive_scan"> Aggressive <code>-A</code></label>
+                    </div>
+                    <div class="input-row">
+                        <label>Idle Zombie <code>-sI</code></label>
+                        <input type="text" name="idle_zombie" placeholder="zombie-host">
+                    </div>
+                    <div class="input-row">
+                        <label>Custom TCP Flags <code>--scanflags</code></label>
+                        <input type="text" name="scan_flags" placeholder="e.g. SYNFIN">
+                    </div>
+                </div>
+            </div>
+
+            <!-- HOST DISCOVERY -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>🔍 Host Discovery</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-sn" name="ping_sweep"> Ping Sweep <code>-sn</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-Pn" name="no_ping"> No Ping <code>-Pn</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PS" name="syn_ping"> TCP SYN Ping <code>-PS</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PA" name="ack_ping"> TCP ACK Ping <code>-PA</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PU" name="udp_ping"> UDP Ping <code>-PU</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PY" name="sctp_ping"> SCTP INIT Ping <code>-PY</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PE" name="icmp_echo"> ICMP Echo <code>-PE</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PP" name="icmp_timestamp"> ICMP Timestamp <code>-PP</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PM" name="icmp_mask"> ICMP Mask <code>-PM</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PO" name="ip_proto_ping"> IP Proto Ping <code>-PO</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-PR" name="arp_ping"> ARP Ping <code>-PR</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--traceroute" name="traceroute"> Traceroute <code>--traceroute</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-R" name="force_rdns"> Force rDNS <code>-R</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-n" name="disable_rdns"> Disable rDNS <code>-n</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--system-dns" name="system_dns"> System DNS <code>--system-dns</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sL" name="list_scan"> List Scan <code>-sL</code></label>
+                    </div>
+                    <div class="input-row">
+                        <label>DNS Servers <code>--dns-servers</code></label>
+                        <input type="text" name="dns_servers" placeholder="8.8.8.8,8.8.4.4">
+                    </div>
+                    <div class="input-row">
+                        <label>Random Hosts <code>-iR</code></label>
+                        <input type="text" name="iR" placeholder="number of hosts">
+                    </div>
+                    <div class="input-row">
+                        <label>Exclude Hosts <code>--exclude</code></label>
+                        <input type="text" name="exclude" placeholder="192.168.1.5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PORT OPTIONS -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>🔌 Port Options</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-F" name="fast_scan"> Fast Scan <code>-F</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-p 1-65535" name="all_ports"> All Ports <code>-p 1-65535</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-r" name="sequential"> Sequential <code>-r</code></label>
+                    </div>
+                    <div class="input-row">
+                        <label>Port Range <code>-p</code></label>
+                        <input type="text" name="port_range" placeholder="80,443 or 1-1000 or U:53,T:80" id="port_range_input">
+                    </div>
+                    <!-- Quick-fill port presets -->
+                    <div class="quickfill-label">Quick Fill:</div>
+                    <div class="quickfill-row">
+                        <button class="qbtn" data-port="21,22,23,25,53,80,110,143,443,445,3389">Common</button>
+                        <button class="qbtn" data-port="80,443,8080,8443,8888,3000,4443,9443">Web</button>
+                        <button class="qbtn" data-port="21,22,23,25,110,143,993,995">Mail/FTP</button>
+                        <button class="qbtn" data-port="3306,5432,1433,1521,27017,6379,5984">DBs</button>
+                        <button class="qbtn" data-port="135,139,445,1433,3389,5985,5986">Windows</button>
+                        <button class="qbtn" data-port="22,2222,8022">SSH</button>
+                        <button class="qbtn" data-port="1-1024">Well-known</button>
+                        <button class="qbtn" data-port="1-65535">All 65535</button>
+                    </div>
+                    <div class="input-row">
+                        <label>Top Ports <code>--top-ports</code></label>
+                        <input type="text" name="top_ports" placeholder="100">
+                    </div>
+                    <div class="quickfill-row" style="margin-top:4px">
+                        <button class="qbtn" data-topport="10">Top 10</button>
+                        <button class="qbtn" data-topport="100">Top 100</button>
+                        <button class="qbtn" data-topport="1000">Top 1000</button>
+                        <button class="qbtn" data-topport="5000">Top 5000</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVICE / OS DETECTION -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>🧠 Service &amp; OS Detection</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-sV" name="service_detection"> Service Ver. <code>-sV</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--version-trace" name="version_trace"> Ver. Trace <code>--version-trace</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-O" name="os_detection"> OS Detection <code>-O</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--osscan-guess" name="os_scan_guess"> OS Guess <code>--osscan-guess</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-sC" name="script_scan"> Default Scripts <code>-sC</code></label>
+                    </div>
+                    <div class="input-row" style="margin-top:8px">
+                        <label>Version Intensity <code>--version-intensity</code></label>
+                        <input type="text" name="version_intensity" placeholder="0-9 (default 7)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- NSE SCRIPTS -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>📜 NSE Scripts</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="input-row">
+                        <label>Script <code>--script</code></label>
+                        <input type="text" name="script" id="script_input" placeholder="vuln, http-title, smb-os-discovery">
+                    </div>
+                    <!-- Script category quick-fill -->
+                    <div class="quickfill-label">Categories:</div>
+                    <div class="quickfill-row">
+                        <button class="qbtn qbtn-red"  data-script="vuln">vuln</button>
+                        <button class="qbtn qbtn-red"  data-script="exploit">exploit</button>
+                        <button class="qbtn qbtn-amber" data-script="auth">auth</button>
+                        <button class="qbtn qbtn-amber" data-script="brute">brute</button>
+                        <button class="qbtn" data-script="discovery">discovery</button>
+                        <button class="qbtn" data-script="default">default</button>
+                        <button class="qbtn" data-script="safe">safe</button>
+                        <button class="qbtn" data-script="external">external</button>
+                        <button class="qbtn" data-script="intrusive">intrusive</button>
+                        <button class="qbtn" data-script="malware">malware</button>
+                    </div>
+                    <!-- Common individual script quick-fill -->
+                    <div class="quickfill-label">Common Scripts:</div>
+                    <div class="quickfill-row">
+                        <button class="qbtn" data-script="http-title">http-title</button>
+                        <button class="qbtn" data-script="http-methods">http-methods</button>
+                        <button class="qbtn" data-script="http-headers">http-headers</button>
+                        <button class="qbtn" data-script="ssl-cert">ssl-cert</button>
+                        <button class="qbtn" data-script="smb-os-discovery">smb-os</button>
+                        <button class="qbtn" data-script="dns-brute">dns-brute</button>
+                        <button class="qbtn" data-script="ftp-anon">ftp-anon</button>
+                        <button class="qbtn" data-script="ssh-auth-methods">ssh-auth</button>
+                        <button class="qbtn" data-script="banner">banner</button>
+                        <button class="qbtn" data-script="whois-domain">whois</button>
+                    </div>
+                    <div class="options-grid" style="margin-top:8px">
+                        <label class="opt"><input type="checkbox" data-flag="--script-trace" name="script_trace"> Script Trace <code>--script-trace</code></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OUTPUT OPTIONS -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>📤 Output Options</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-v" name="verbose"> Verbose <code>-v</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-d" name="debug"> Debug <code>-d</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--reason" name="reason"> Show Reason <code>--reason</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--open" name="open_only"> Open Only <code>--open</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--packet-trace" name="packet_trace"> Pkt Trace <code>--packet-trace</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--iflist" name="iflist"> Host Netw. <code>--iflist</code></label>
+                    </div>
+                    <div class="input-row" style="margin-top:8px">
+                        <label>Save Normal <code>-oN</code></label>
+                        <input type="text" name="out_normal" placeholder="scan.txt">
+                    </div>
+                    <div class="input-row">
+                        <label>Save XML <code>-oX</code></label>
+                        <input type="text" name="out_xml" placeholder="scan.xml">
+                    </div>
+                    <div class="input-row">
+                        <label>Save Grepable <code>-oG</code></label>
+                        <input type="text" name="out_grep" placeholder="scan.gnmap">
+                    </div>
+                    <div class="input-row">
+                        <label>Save All <code>-oA</code></label>
+                        <input type="text" name="out_all" placeholder="scan_basename">
+                    </div>
+                    <div class="input-row">
+                        <label>Stats Every <code>--stats-every</code></label>
+                        <input type="text" name="stats_every" placeholder="10s">
+                    </div>
+                </div>
+            </div>
+
+            <!-- FIREWALL EVASION -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>🛡️ Firewall Evasion</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-f" name="fragment"> Fragment Pkts <code>-f</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--badsum" name="badsum"> Bad Checksums <code>--badsum</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--randomize-hosts" name="randomize_hosts"> Randomize Hosts <code>--randomize-hosts</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--send-eth" name="send_eth"> Raw Ethernet <code>--send-eth</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--send-ip" name="send_ip"> Send IP Pkts <code>--send-ip</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--defeat-rst-ratelimit" name="defeat_rst"> Defeat RST Rate <code>--defeat-rst-ratelimit</code></label>
+                    </div>
+                    <div class="input-row">
+                        <label>MTU Size <code>--mtu</code></label>
+                        <input type="text" name="mtu" placeholder="24">
+                    </div>
+                    <div class="input-row">
+                        <label>Decoy <code>-D</code></label>
+                        <input type="text" name="decoy" placeholder="RND:10 or IP1,IP2">
+                    </div>
+                    <div class="input-row">
+                        <label>Source Port <code>--source-port</code></label>
+                        <input type="text" name="source_port" placeholder="53">
+                    </div>
+                    <div class="input-row">
+                        <label>Data Length <code>--data-length</code></label>
+                        <input type="text" name="data_length" placeholder="200">
+                    </div>
+                    <div class="input-row">
+                        <label>Spoof MAC <code>--spoof-mac</code></label>
+                        <input type="text" name="spoof_mac" placeholder="0 or Apple or 00:11:22:33:44:55">
+                    </div>
+                    <div class="input-row">
+                        <label>Network Interface <code>-e</code></label>
+                        <input type="text" name="interface" placeholder="eth0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIMING -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>⏱️ Timing & Performance</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="timing-slider-row">
+                        <label>Timing Template</label>
+                        <div class="timing-options">
+                            <label class="timing-chip"><input type="radio" name="timing" value="0"> T0 Paranoid</label>
+                            <label class="timing-chip"><input type="radio" name="timing" value="1"> T1 Sneaky</label>
+                            <label class="timing-chip"><input type="radio" name="timing" value="2"> T2 Polite</label>
+                            <label class="timing-chip active"><input type="radio" name="timing" value="3" checked> T3 Normal</label>
+                            <label class="timing-chip"><input type="radio" name="timing" value="4"> T4 Aggressive</label>
+                            <label class="timing-chip"><input type="radio" name="timing" value="5"> T5 Insane</label>
+                        </div>
+                    </div>
+                    <div class="options-grid">
+                        <label class="opt"><input type="checkbox" data-flag="-v" name="verbose"> Verbose <code>-v</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="-d" name="debug"> Debug <code>-d</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--reason" name="reason"> Show Reason <code>--reason</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--open" name="open_only"> Open Only <code>--open</code></label>
+                        <label class="opt"><input type="checkbox" data-flag="--packet-trace" name="packet_trace"> Pkt Trace <code>--packet-trace</code></label>
+                    </div>
+                    <div class="input-row">
+                        <label>TTL <code>--ttl</code></label>
+                        <input type="text" name="ttl" placeholder="64">
+                    </div>
+                    <div class="input-row">
+                        <label>Min Parallelism <code>--min-parallelism</code></label>
+                        <input type="text" name="min_parallelism" placeholder="10">
+                    </div>
+                    <div class="input-row">
+                        <label>Max Parallelism <code>--max-parallelism</code></label>
+                        <input type="text" name="max_parallelism" placeholder="10">
+                    </div>
+                    <div class="input-row">
+                        <label>Min Host Group <code>--min-hostgroup</code></label>
+                        <input type="text" name="min_hostgroup" placeholder="50">
+                    </div>
+                    <div class="input-row">
+                        <label>Max Host Group <code>--max-hostgroup</code></label>
+                        <input type="text" name="max_hostgroup" placeholder="50">
+                    </div>
+                    <div class="input-row">
+                        <label>Max RTT Timeout <code>--max-rtt-timeout</code></label>
+                        <input type="text" name="max_rtt_timeout" placeholder="100ms">
+                    </div>
+                    <div class="input-row">
+                        <label>Initial RTT Timeout <code>--initial-rtt-timeout</code></label>
+                        <input type="text" name="initial_rtt_timeout" placeholder="100ms">
+                    </div>
+                    <div class="input-row">
+                        <label>Max Retries <code>--max-retries</code></label>
+                        <input type="text" name="max_retries" placeholder="3">
+                    </div>
+                    <div class="input-row">
+                        <label>Host Timeout <code>--host-timeout</code></label>
+                        <input type="text" name="host_timeout" placeholder="30m">
+                    </div>
+                    <div class="input-row">
+                        <label>Scan Delay <code>--scan-delay</code></label>
+                        <input type="text" name="scan_delay" placeholder="1s">
+                    </div>
+                    <div class="input-row">
+                        <label>Max Scan Delay <code>--max-scan-delay</code></label>
+                        <input type="text" name="max_scan_delay" placeholder="1s">
+                    </div>
+                    <div class="input-row">
+                        <label>Min Rate <code>--min-rate</code></label>
+                        <input type="text" name="min_rate" placeholder="100">
+                    </div>
+                    <div class="input-row">
+                        <label>Max Rate <code>--max-rate</code></label>
+                        <input type="text" name="max_rate" placeholder="100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUSTOM FLAGS -->
+            <div class="accordion">
+                <button class="accordion-header">
+                    <span>⚙️ Custom / Advanced</span><span class="chevron">▾</span>
+                </button>
+                <div class="accordion-body">
+                    <div class="input-row">
+                        <label>Extra Flags</label>
+                        <input type="text" name="custom_flags" placeholder="--iflist --stats-every 5s ...">
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end options-panel -->
+
+        <!-- OUTPUT -->
+        <section class="results-section">
+            <div class="results-header">
+                <span>📡 Output</span>
+                <div style="display: flex; gap: 8px;">
+                    <button id="download-btn" class="btn-ghost">Download</button>
+                    <button id="copy-btn" class="btn-ghost">Copy</button>
+                </div>
+            </div>
+            <div class="terminal">
+                <pre id="output">Ready. Configure options above and click ▶ Scan.</pre>
+            </div>
+        </section>
+
+    </div><!-- end container -->
+    <script src="popup.js"></script>
+</body>
+</html>
