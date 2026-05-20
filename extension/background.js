@@ -1,19 +1,24 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'START_SCAN') {
-        const { payload, apiUrl } = request;
+        const { payload, apiUrl, apiKey } = request;
         const target = payload.target;
         
         // Derive base URL to use for polling
         const baseUrl = apiUrl.replace('/api/scan', '');
 
         // Set active scan state
-        chrome.storage.local.set({ activeScan: target, apiBaseUrl: baseUrl });
+        chrome.storage.local.set({ activeScan: target, apiBaseUrl: baseUrl, apiKey: apiKey || '' });
 
         console.log(`Starting background scan for: ${target} at ${apiUrl}`);
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) {
+            headers['X-API-Key'] = apiKey;
+        }
+
         fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(payload)
         })
         .then(res => res.json())
@@ -56,13 +61,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'pollScan') {
-        chrome.storage.local.get(['activeJobId', 'activeScan', 'apiBaseUrl'], (result) => {
+        chrome.storage.local.get(['activeJobId', 'activeScan', 'apiBaseUrl', 'apiKey'], (result) => {
             if (!result.activeJobId || !result.apiBaseUrl) {
                 chrome.alarms.clear('pollScan');
                 return;
             }
 
-            fetch(`${result.apiBaseUrl}/api/scan/${result.activeJobId}`)
+            const headers = {};
+            if (result.apiKey) {
+                headers['X-API-Key'] = result.apiKey;
+            }
+
+            fetch(`${result.apiBaseUrl}/api/scan/${result.activeJobId}`, {
+                headers: headers
+            })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'completed' || data.status === 'failed') {
@@ -79,7 +91,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 function finishJob(target, data) {
-    chrome.storage.local.remove(['activeScan', 'activeJobId', 'apiBaseUrl']);
+    chrome.storage.local.remove(['activeScan', 'activeJobId']);
     
     let out = `\n▶ Command: ${data.command || 'Error'}\n${'─'.repeat(40)}\n`;
     if (data.status === 'mock') out += `[MOCK MODE]\n`;

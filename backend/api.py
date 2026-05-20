@@ -16,6 +16,15 @@ app = FastAPI(title="Nmap API")
 # Global in-memory job store
 JOBS = {}
 
+# Retrieve API key if defined (for cloud deployments)
+NMAP_API_KEY = os.environ.get("NMAP_API_KEY", "").strip()
+
+async def check_api_key(request: Request):
+    if NMAP_API_KEY:
+        header_key = request.headers.get("X-API-Key", "").strip()
+        if header_key != NMAP_API_KEY:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing API key")
+
 class CORSEverywhere(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
@@ -28,6 +37,7 @@ class CORSEverywhere(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(CORSEverywhere)
+
 
 class NmapRequest(BaseModel):
     target: str = ""
@@ -309,12 +319,14 @@ def build_cmd(nmap_path: str, req: NmapRequest) -> list:
 
     return cmd
 
+from fastapi import Depends
+
 @app.get("/health")
 async def health_check():
     return {"status": "online", "nmap_found": get_nmap_path() is not None}
 
 @app.post("/api/scan")
-async def run_scan(req: NmapRequest, background_tasks: BackgroundTasks):
+async def run_scan(req: NmapRequest, background_tasks: BackgroundTasks, _ = Depends(check_api_key)):
     try:
         job_id = str(uuid.uuid4())
         nmap_path = get_nmap_path()
@@ -366,7 +378,7 @@ async def execute_scan(job_id: str, cmd: list):
         JOBS[job_id]["error"] = f"{str(e)}\n{traceback.format_exc()}"
 
 @app.get("/api/scan/{job_id}")
-async def get_scan_status(job_id: str):
+async def get_scan_status(job_id: str, _ = Depends(check_api_key)):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found")
     return JOBS[job_id]

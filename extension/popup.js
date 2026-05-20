@@ -1,12 +1,19 @@
 let API_BASE = 'http://localhost:8001';
+let API_KEY = '';
 
 // Load settings from storage
 if (typeof chrome !== 'undefined' && chrome.storage) {
-    chrome.storage.local.get(['apiBaseUrl'], (result) => {
+    chrome.storage.local.get(['apiBaseUrl', 'apiKey'], (result) => {
         if (result.apiBaseUrl) {
             API_BASE = result.apiBaseUrl;
             if (document.getElementById('api-url-input')) {
                 document.getElementById('api-url-input').value = API_BASE;
+            }
+        }
+        if (result.apiKey) {
+            API_KEY = result.apiKey;
+            if (document.getElementById('api-key-input')) {
+                document.getElementById('api-key-input').value = API_KEY;
             }
         }
         checkStatus();
@@ -18,6 +25,7 @@ const settingsBtn = document.getElementById('settings-btn');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
 const settingsModal = document.getElementById('settings-modal');
 const apiUrlInput = document.getElementById('api-url-input');
+const apiKeyInput = document.getElementById('api-key-input');
 
 if (settingsBtn) settingsBtn.addEventListener('click', () => settingsModal.style.display = 'block');
 if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => settingsModal.style.display = 'none');
@@ -31,6 +39,15 @@ if (apiUrlInput) {
             chrome.storage.local.set({apiBaseUrl: API_BASE});
         }
         checkStatus();
+    });
+}
+
+if (apiKeyInput) {
+    apiKeyInput.addEventListener('change', (e) => {
+        API_KEY = e.target.value.trim();
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            chrome.storage.local.set({apiKey: API_KEY});
+        }
     });
 }
 
@@ -383,7 +400,8 @@ scanBtn.addEventListener('click', () => {
         chrome.runtime.sendMessage({
             type: 'START_SCAN',
             payload: payload,
-            apiUrl: getApiUrl()
+            apiUrl: getApiUrl(),
+            apiKey: API_KEY
         }).catch(err => {
             outputEl.innerHTML = `❌ Failed to communicate with background script.<br><br><b>💡 FIX:</b> Please go to <code>chrome://extensions/</code> and click the <b>Reload ↻</b> button on the extension card to register the new background worker.`;
             outputEl.classList.remove('scanning');
@@ -435,7 +453,7 @@ clearBtn.addEventListener('click', () => {
     
     // Force remove activeScan and activeJobId from storage
     if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.remove(['activeScan', 'activeJobId', 'apiBaseUrl']);
+        chrome.storage.local.remove(['activeScan', 'activeJobId']);
     }
 
     buildPreview();
