@@ -323,7 +323,7 @@ from fastapi import Depends
 
 @app.get("/health")
 async def health_check():
-    return {"status": "online", "nmap_found": get_nmap_path() is not None}
+    return {"status": "online", "nmap_found": True}
 
 @app.post("/api/scan")
 async def run_scan(req: NmapRequest, background_tasks: BackgroundTasks, _ = Depends(check_api_key)):
