@@ -1,4 +1,4 @@
-let API_BASE = 'http://localhost:8001';
+let API_BASE = 'https://nmap-api-nvry.onrender.com';
 let API_KEY = '';
 
 // Load settings from storage
@@ -34,7 +34,7 @@ if (apiUrlInput) {
     apiUrlInput.addEventListener('change', (e) => {
         let val = e.target.value.trim();
         if(val.endsWith('/')) val = val.slice(0, -1);
-        API_BASE = val || 'http://localhost:8001';
+        API_BASE = val || 'https://nmap-api-nvry.onrender.com';
         if (typeof chrome !== 'undefined' && chrome.storage) {
             chrome.storage.local.set({apiBaseUrl: API_BASE});
         }
